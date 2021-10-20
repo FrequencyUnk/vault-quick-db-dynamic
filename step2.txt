@@ -1,0 +1,42 @@
+###In Vault
+#Start Vault Server in Dev Mode
+vault server -dev -dev-root-token-id root
+
+###Open Second Terminal
+#export Vault Address
+export VAULT_ADDR=http://127.0.0.1:8200
+#export vault root token
+export VAULT_TOKEN=root
+
+#Enable database secrets engine
+vault secrets enable database
+#Configure postgres db connection with vault
+vault write database/config/postgresql \
+     plugin_name=postgresql-database-plugin \
+     connection_url="postgresql://{{username}}:{{password}}@localhost:5432/postgres?sslmode=disable" \
+     allowed_roles=readonly \
+     username="root" \
+     password="rootpassword"
+#Define a local sql file used to create credentials within Vault which map to "ro"
+tee readonly.sql <<EOF
+CREATE ROLE "{{name}}" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' INHERIT;
+GRANT ro TO "{{name}}";
+EOF
+#Create the role readonly which maps to the "ro" postgres db role
+#This role will create a TTL db credential lasting 1-24 hours
+vault write database/roles/readonly \
+      db_name=postgresql \
+      creation_statements=@readonly.sql \
+      default_ttl=1h \
+      max_ttl=24h
+#Read credentials from the readonly database role
+#Use the generated username and password to access the postgres db in next step
+vault read database/creds/readonly
+##Example below
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/fyF5xDomnKeCHNZNQgStwBKD
+##lease_duration     1h
+##lease_renewable    true
+##password           A1a-ckirtymYaXACpIHn
+##username           v-token-readonly-6iRIcGv8tLpu816oblPY-1556567086
