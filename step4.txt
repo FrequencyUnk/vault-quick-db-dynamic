@@ -1,0 +1,49 @@
+###Manage leases
+
+###In Vault Client Terminal
+#List existing leases
+vault list sys/leases/lookup/database/creds/readonly
+
+##Expected output
+##Keys
+##----
+##IQKUMCTg3M5QTRZ0abmLKjTX
+
+#Create a variable that stores the first lease ID
+LEASE_ID=$(vault list -format=json sys/leases/lookup/database/creds/readonly | jq -r ".[0]")
+
+#Renew the lease for the db creds by passing lease ID
+vault lease renew database/creds/readonly/$LEASE_ID
+
+##Expected output will show id and TTL
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/IQKUMCTg3M5QTRZ0abmLKjTX
+##lease_duration     1h
+##lease_renewable    true
+
+#Revoke the lease before it expires
+vault lease revoke database/creds/readonly/$LEASE_ID
+##Expected output marks success
+##"All revocation operations queued successfully!"
+
+#List existing leases again to show the previous was revoked successfully
+vault list sys/leases/lookup/database/creds/readonly
+##Expected output shows no leases available
+##"No value found at sys/leases/lookup/database/creds/readonly/"
+
+#Read new credientals of the readonly db role (get new creds)
+vault read database/creds/readonly
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/P6tTTiWsR1fVCp0btLktU0Dm
+##lease_duration     1m
+##lease_renewable    true
+##password           A1a-pfgGk7Ptb0TxGBJI
+##username           v-token-readonly-9blxDY3dIKXsFMkv8kvH-1600278284
+
+#Revoke all leases within a path. In this case the readonly role
+vault lease revoke -prefix database/creds/readonly
+#List leases again to show proof that newly generated creds/lease revoked
+vault list sys/leases/lookup/database/creds/readonly
+##"No value found at sys/leases/lookup/database/creds/readonly/"
