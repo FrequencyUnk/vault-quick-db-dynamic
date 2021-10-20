@@ -1,0 +1,30 @@
+###Define A Username Template
+
+###In Vault Client Terminal
+
+#Read creds from readonly db role (get new creds)
+vault read database/creds/readonly
+
+##Output shows default username naming convention
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/ZxoKlbklsliYA4hZs7umoPIz
+##lease_duration     1h
+##lease_renewable    true
+##password           9MSegMz7N1Fr69ZTyb#D
+##username           v-token-readonly-wGLPkpDyc6AgqBfMZTD3-1604195404
+
+#Configure db secrets engine with a new username template
+vault write database/config/postgresql \
+    username_template="myorg-{{.RoleName}}-{{unix_time}}-{{random 8}}"
+
+#Read creds for readonly role again
+vault read database/creds/readonly
+##Output shows new naming convention for username
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/NOCGtSbz7g4FFjcztX6Bqh3S
+##lease_duration     1h
+##lease_renewable    true
+##password           -h3B-JteYjgOPYIC6dGQ
+##username           myorg-readonly-1616447348-af9eHMWD
