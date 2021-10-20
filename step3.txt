@@ -1,0 +1,14 @@
+###Validation of the new postgres db creds
+
+###In Docker
+#Connect to the postgres db
+docker exec -it postgres psql
+#List all the db user
+SELECT usename, valuntil FROM pg_user;
+
+##Expected Output will show root, ro, and new creds
+##--------------------------------------------------+------------------------
+## root                                             |
+## v-token-readonly-47vOtpF7pZq79Xajx7yq-1556567237 | 2020-09-14 17:36:48+00
+## ro                                               |
+##(3 rows)
