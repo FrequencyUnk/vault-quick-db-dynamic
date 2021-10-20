@@ -1,0 +1,64 @@
+###Define a password policy
+
+#A policy defines the rules and requirements that the password 
+#must adhere to and can provide that password directly through 
+#a new endpoint or within secrets engines.
+
+###The passwords you want to generate adhere to these requirements.
+#length of 20 characters
+#at least 1 uppercase character
+#at least 1 lowercase character
+#at least 1 number
+#at least 1 symbol
+
+###Vault Client Terminal
+#Define password policy in an .hcl file
+tee example_policy.hcl <<EOF
+length=20
+
+rule "charset" {
+  charset = "abcdefghijklmnopqrstuvwxyz"
+  min-chars = 1
+}
+
+rule "charset" {
+  charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  min-chars = 1
+}
+
+rule "charset" {
+  charset = "0123456789"
+  min-chars = 1
+}
+
+rule "charset" {
+  charset = "!@#$%^&*"
+  min-chars = 1
+}
+EOF
+
+#Create the password policy in Vault using the .hcl file in last step
+vault write sys/policies/password/example policy=@example_policy.hcl
+
+#Send a request to the password policy's path to get new password generated
+vault read sys/policies/password/example/generate
+
+###Apply the password policy
+#Configure the postgres db secrets engine with the password policy
+vault write database/config/postgresql \
+     password_policy="example"
+
+#Read credentials of the readonly postgres db role
+#Notice the output has new password adhering to the password policy rules
+vault read database/creds/readonly
+##Expected output
+##Key                Value
+##---                -----
+##lease_id           database/creds/readonly/ZxoKlbklsliYA4hZs7umoPIz
+##lease_duration     1h
+##lease_renewable    true
+##password           9MSegMz7N1Fr69ZTyb#D
+##username           v-token-readonly-wGLPkpDyc6AgqBfMZTD3-1604195404
+
+
+
