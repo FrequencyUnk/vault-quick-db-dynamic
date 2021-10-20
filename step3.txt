@@ -12,3 +12,6 @@ SELECT usename, valuntil FROM pg_user;
 ## v-token-readonly-47vOtpF7pZq79Xajx7yq-1556567237 | 2020-09-14 17:36:48+00
 ## ro                                               |
 ##(3 rows)
+
+#Quit pg db
+\q
