@@ -1,0 +1,19 @@
+###In Docker###
+#Pull docker postgres image
+docker pull postgres:latest
+#Run the postgres docker container
+docker run \
+      --name postgres \
+      --env POSTGRES_USER=root \
+      --env POSTGRES_PASSWORD=rootpassword \
+      --detach  \
+      --publish 5432:5432 \
+      postgres
+#Connect to the postgres database in docker
+docker exec -it postgres psql
+#Create a role named "ro"
+CREATE ROLE ro NOINHERIT;
+#Grant read access to all tables within postgres to "ro"
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO "ro";
+#Disconnect from postgres database
+\q
