@@ -1,0 +1,19 @@
+###Rotate root user creds###
+
+###In Vault Client
+#Command to rotate the root user of PG DB
+vault write -force database/rotate-root/postgresql
+
+###Validation###
+###In Docker
+#remote to postgres container
+docker exec -it postgres bash
+#attempt to login as root user with old password
+psql -h postgres.host.address -p 5432 -U root postgres
+
+##Expected output
+##Password for user root:
+
+#The old password should fail
+#Note that only Vault knows the root password now
+#Therefore create another super user dedicated solely for Vault usage
