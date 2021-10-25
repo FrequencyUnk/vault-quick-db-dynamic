@@ -1,0 +1,114 @@
+###Rotate static user credentials###
+
+###In Docker
+#Remote in to postgres container
+docker exec -it postgres bash
+#Create/configure new "vault-edu" role in postgres
+psql -U root
+CREATE ROLE "vault-edu" WITH LOGIN PASSWORD 'mypassword';
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "vault-edu";
+#Display the user table and confirm new user
+\du
+
+##Expected output
+##                                   List of roles
+## Role name |                         Attributes                         | Member of
+##-----------+------------------------------------------------------------+-----------
+## postgres  | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+## root      | Superuser                                                  | {}
+## vault-edu |                                                            | {}
+
+#exit container
+\q
+
+###In Vault Client
+#Tweak db secrets engine to allow any role to created ("*")
+vault write database/config/postgresql \
+     plugin_name=postgresql-database-plugin \
+     connection_url="postgresql://{{username}}:{{password}}@localhost:5432/postgres?sslmode=disable" \
+     allowed_roles="*" \     
+     username="root" \
+     password="rootpassword"
+
+#create rotation.sql file used to define the education role in vault
+touch rotation.sql
+nano rotation.sql
+ALTER USER "{{name}}" WITH PASSWORD '{{password}}';
+
+#Create Vault "education" role which maps to postgres "vault-edu" role
+#Note this will use the file created in last step
+vault write database/static-roles/education \
+    db_name=postgresql \
+    rotation_statements=@rotation.sql \
+    username="vault-edu" \
+    rotation_period=86400
+    
+#Verify education role
+vault read database/static-roles/education
+
+###Request postgres credentials###
+###In Vault Terminal Still
+#create a file named apps.hcl defining a policy for an app requesting db creds
+touch apps.hcl
+nano apps.hcl
+# 
+path "database/static-creds/education" {
+  capabilities = [ "read" ]
+}
+
+#create the policy in vault using write command
+vault policy write apps apps.hcl
+#generate a token using the newly created apps persona
+vault token create -policy="apps"
+
+##Expected output
+##Key                  Value
+##---                  -----
+##token                s.NN5Izfj9ok3VuZiaP9N9QJ1V
+
+#save this token and open a new terminal
+
+###In NEW Vault Terminal
+#config terminal to reach Vault
+export VAULT_ADDR='http://127.0.0.1:8200'
+export VAULT_TOKEN=<app token>
+#request credentials with the apps token
+VAULT_TOKEN=s.NN5Izfj9ok3VuZiaP9N9QJ1V vault read database/static-creds/education
+
+##Expected output
+##Key                    Value
+##---                    -----
+##last_vault_rotation    2019-06-06T22:23:17.063096-07:00
+##password               A1a-jxH944nG0qHRpMNR
+##rotation_period        24h
+##ttl                    23h51m29s
+##username               vault-edu
+
+#copy the returned password output <A1a-jxH944nG0qHRpMNR>
+
+###Validation###
+###In Docker
+#remote in container
+docker exec -it postgres bash
+#login as vault-edu role
+psql -d postgres -U vault-edu -W
+##Password for user vault-edu:
+#display tables to confirm
+\du
+
+##List of roles
+## Role name |                         Attributes                         | Member of
+##-----------+------------------------------------------------------------+-----------
+## postgres  | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+## root      | Superuser                                                  | {}
+## vault-edu |                                                            | {}
+
+#exit
+\q
+
+###Rotate Static Creds###
+###In Vault terminal as Admin or Root
+#force rotation of static education role
+vault write -f database/rotate-role/education
+#request new credentials (read role) and verify new password
+vault read database/static-creds/education
